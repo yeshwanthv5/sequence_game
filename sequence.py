@@ -136,10 +136,6 @@ class Board:
 
         return False
 
-    def check_terminal(self):
-        check_sequence("red")
-        check_sequence("blue")
-
     def get_status(self, i, j):
         return self.board[i][j].status
 
@@ -307,8 +303,6 @@ def simulate(size, seq_len, num_seq):
     p1.draw(deck)
     p2.draw(deck)
     turn = 0
-    p1_win = False
-    p2_win = False
     while True:
         print(board)
         if turn == 0:
