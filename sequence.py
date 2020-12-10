@@ -16,6 +16,9 @@ available_numbers = ["A", "2", "3", "4", "5", "6"]
 available_suites = ["hearts", "diamonds"]
 
 def action_to_int(move, size):
+    """
+    Convert move (card, location) into a single dimension and return the index
+    """
     card = move[0]
     loc = move[1]
     if card["number"] == "J":
@@ -26,6 +29,9 @@ def action_to_int(move, size):
     return int_action
 
 def int_to_action(idx, size):
+    """
+    Convert index to corresponding move (card, location)
+    """
     D1 = size
     D2 = size
     D3 = len(available_numbers) + 1
@@ -44,6 +50,9 @@ def int_to_action(idx, size):
     return (card, (i, j))
 
 def dot(a, b):
+    """
+    Dot product utility
+    """
     assert len(a) == len(b)
     c = 0
     for i in range(len(a)):
@@ -51,6 +60,9 @@ def dot(a, b):
     return c
 
 def check_boundaries(i, j, size):
+    """
+    Check boundary conditions
+    """
     if i >= 0 and j >= 0 and i < size and j < size:
         return True
     return False
@@ -75,6 +87,9 @@ def calculate_potentials(i, j, curr_board, color, pot):
             pot[i][j][2] = 1
 
 def get_features(curr_board, cards):
+    """
+    Feature extractor: Takes board state and cards in hand and find the features
+    """
     one_hot = [0]*30
     pot_r = [[[0,0,0] for i in range(curr_board.size)] for j in range(curr_board.size)]
     pot_b = [[[0,0,0] for i in range(curr_board.size)] for j in range(curr_board.size)]
@@ -86,8 +101,8 @@ def get_features(curr_board, cards):
             else:
                 calculate_potentials(i, j, curr_board, "red", pot_r)
                 calculate_potentials(i, j, curr_board, "blue", pot_b)
-    p1_num_seq = [0]*6
-    p2_num_seq = [0]*6
+    p1_num_seq = [0]*9
+    p2_num_seq = [0]*9
     for i in range(len(pot_r)):
         for j in range(len(pot_r)):
             for k in range(3):
@@ -169,7 +184,8 @@ def get_features(curr_board, cards):
         one_hot[26] = 1
     else:
         one_hot[27] = 1
-    # print(cards)
+
+    # Two features for having J cards in hand
     for card in cards:
         if card["number"] == "J" and (card["suite"] == "spades" or card["suite"] == "hearts"):
             one_hot[28] = 1
@@ -252,6 +268,9 @@ class Board:
                         j = 0
 
     def check_sequence(self, color):
+        """
+        Check for existence of sequences and return True if it matches the number of required sequences
+        """
         # Check rows
         count = 0
         for row in range(self.size):
@@ -262,7 +281,7 @@ class Board:
                     if streak == self.seq_len:
                         streak = 0
                         count += 1
-                        if count == self.seq_count:
+                        if count >= self.seq_count:
                             return True
         # Check cols
         for col in range(self.size):
@@ -273,7 +292,7 @@ class Board:
                     if streak == self.seq_len:
                         streak = 0
                         count += 1
-                        if count == self.seq_count:
+                        if count >= self.seq_count:
                             return True
 
         for s in range(2*self.size - 1):
@@ -286,7 +305,7 @@ class Board:
                         if streak == self.seq_len:
                             streak = 0
                             count += 1
-                            if count == self.seq_count:
+                            if count >= self.seq_count:
                                 return True
 
         for d in range(-1*self.size + 1, self.size):
@@ -299,7 +318,7 @@ class Board:
                        if streak == self.seq_len:
                            streak = 0
                            count += 1
-                           if count == self.seq_count:
+                           if count >= self.seq_count:
                                return True
 
         return False
@@ -376,8 +395,12 @@ class Deck:
 class QLAgent:
     """
     Class for q learning agent
+    Implements train function to train the agent and move function that returns the recommended move given a state
     """
     def __init__(self, board_size, seq_len, num_seq, num_cards):
+        """
+        Initializes the required parameters of the game and initializes the Q Learning model
+        """
         self.board_size = board_size
         self.seq_len = seq_len
         self.num_seq = num_seq
@@ -389,6 +412,9 @@ class QLAgent:
         self.model = {"W": W, "b": b}
 
     def move(self, board, deck, cards, moves):
+        """
+        Given the state of board, deck, cards in hand and a list of available moves returns the move with highest Q value
+        """
         reco_move = moves[0]
         Q_curr = self.forward(get_features(board, cards), action_to_int(moves[0], self.board_size))
         for i in range(1, len(moves)):
@@ -399,15 +425,24 @@ class QLAgent:
         return reco_move
 
     def forward(self, features, a):
+        """
+        Forward pass on linear model
+        """
         Q = dot(features, self.model["W"][a]) + self.model["b"][a] # Q = wx + b
         return Q
 
     def backward(self, features, a, delta, lr=0.1):
+        """
+        Backprop on model parameters
+        """
         for i in range(len(features)):
             self.model["W"][a][i] += lr*delta*features[i] # Update only the weights of current action
         self.model["b"][a] += lr*delta
 
     def train(self, eps, gamma, lr=0.1):
+        """
+        Trains the Q learning agent. Takes hyperparametes - epsilon (degree of exploration), gamma (discount factor) and learning rate as arguments
+        """
         board = Board(self.board_size, self.seq_len, self.num_seq)
         deck = Deck()
         p1 = Player("red")
@@ -467,6 +502,11 @@ class QLAgent:
 
 
 class Player:
+    """
+    Models the player. 
+    Keeps track of game status and cards in player's hand
+    Can associate an agent to model the strategy of the player
+    """
     def __init__(self, color, agent=None):
         self.color = color
         self._cards = []
@@ -474,6 +514,9 @@ class Player:
         self.game_status = "continue"
 
     def draw(self, deck):
+        """
+        Draws a card from deck and puts in player's hand
+        """
         self._cards.append(deck.draw())
 
     def show_cards(self):
@@ -483,6 +526,7 @@ class Player:
     def available_moves(self, board):
         """
         Move can be characterized by card and location
+        Given a board state returns the feasible moves for the player
         """
         moves = []
         for i in range(len(self._cards)):
@@ -510,6 +554,9 @@ class Player:
         return moves
 
     def play(self, move, board, deck):
+        """
+        Executes a move
+        """
         card = move[0]
         loc = move[1]
         i = loc[0]
@@ -530,6 +577,9 @@ class Player:
         return self.game_status
 
     def random_play(self, board, deck):
+        """
+        Randomly select a move from the set of available moves
+        """
         moves = self.available_moves(board)
         if len(moves) == 0:
             self.game_status = "draw"
@@ -538,6 +588,10 @@ class Player:
         return self.play(reco_move, board, deck)
 
     def strategic_play(self, board, deck):
+        """
+        Asks the agent to suggest the move and plays that
+        If no agent is available returns random move
+        """
         if self.agent:
             moves = self.available_moves(board)
             if len(moves) == 0:
@@ -546,15 +600,22 @@ class Player:
             reco_move = self.agent.move(board, deck, self.show_cards(), moves)
             return self.play(reco_move, board, deck)
         else:
+            print("Agent not available returning a random move")
             return self.random_play(board, deck)
     
     def associate_agent(self, agent):
+        """
+        Associate an agent to the player
+        """
         if self.agent != None:
             print("Warning: Overwriting an agent")
         self.agent = agent
 
 
 def simulate_random(size, seq_len, num_seq, num_cards):
+    """
+    Simulate a random game with the given set of parameters
+    """
     board = Board(size, seq_len, num_seq)
     deck = Deck()
     p1 = Player("red")
@@ -581,6 +642,9 @@ def simulate_random(size, seq_len, num_seq, num_cards):
             turn = 0
 
 def simulate_strategic(size, seq_len, num_seq, num_cards, agent):
+    """
+    Simulates a game with player 1 playing according to the agent and player 2 playing randomly
+    """
     board = Board(size, seq_len, num_seq)
     deck = Deck()
     p1 = Player("red", agent) # Create P1 with learned agent
@@ -607,6 +671,9 @@ def simulate_strategic(size, seq_len, num_seq, num_cards, agent):
             turn = 0
 
 def test():
+    """
+    Some unit tests
+    """
     board = Board(5, 4, 1)
     deck = Deck()
     # print(len(deck._deck))
@@ -633,16 +700,18 @@ def test():
 def main():
     # test()
     # sys.exit()
+    random.seed(5)
+    num_games = 10000
     board_size = 5
     seq_len = 4
     num_seq = 1
-    num_cards = 2
+    num_cards = 3
 
     ### Test Random Agent ###
     win = 0
     loss = 0
     draw = 0
-    for _ in range(1000):
+    for _ in range(num_games):
         r = simulate_random(board_size, seq_len, num_seq, num_cards)
         if r == 1:
             win += 1
@@ -650,12 +719,12 @@ def main():
             draw += 1
         else:
             loss += 1
-    print("Random Play: win/loss/draw: {}/{}/{}".format(win, loss, draw))
+    print("Random Play {} games: win/loss/draw: {}/{}/{}".format(num_games, win, loss, draw))
 
     ### Train a Q Learning agent ###
-    random.seed(5)
+    
     start = time.time()
-    tlimit = 300 # Time limit to train (in seconds)
+    tlimit = 120 # Time limit to train (in seconds)
     eps = 0.7
     gamma = 0.9
     lr = 0.1
@@ -666,15 +735,16 @@ def main():
     # for i in range(50):
         agent.train(eps, gamma, lr)
         count += 1
-        if count%2500 == 0:
+        if count%2000 == 0:
             lr = lr/2
 
-    print(count)
+    print("Trained agent for {} Iterations".format(count))
+
     ### Test Q Learning agent ###
     win = 0
     loss = 0
     draw = 0
-    for _ in range(1000):
+    for _ in range(num_games):
         r = simulate_strategic(board_size, seq_len, num_seq, num_cards, agent)
         if r == 1:
             win += 1
@@ -682,7 +752,7 @@ def main():
             draw += 1
         else:
             loss += 1
-    print("Strategic Play: win/loss/draw: {}/{}/{}".format(win, loss, draw))
+    print("Strategic Play {} games: win/loss/draw: {}/{}/{}".format(num_games, win, loss, draw))
 
 
 if __name__ == "__main__":
