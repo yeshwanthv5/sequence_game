@@ -700,12 +700,13 @@ def test():
 def main():
     # test()
     # sys.exit()
-    random.seed(5)
+    # random.seed(5)
     num_games = 10000
     board_size = 5
     seq_len = 4
     num_seq = 1
     num_cards = 3
+    tlimit = 120 # Time limit to train Q Learning agent (in seconds)
 
     ### Test Random Agent ###
     win = 0
@@ -724,7 +725,6 @@ def main():
     ### Train a Q Learning agent ###
     
     start = time.time()
-    tlimit = 120 # Time limit to train (in seconds)
     eps = 0.7
     gamma = 0.9
     lr = 0.1
